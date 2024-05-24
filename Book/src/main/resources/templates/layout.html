@@ -3,36 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initialscale=1.0">
+    <link >
+    <link th:fragment="link-css" rel="stylesheet"
+          th:href="@{/css/bootstrap.min.css}">
+    <link th:fragment="custom-css" rel="stylesheet"
+          th:href="@{~/css/style.css}">
     <title>My App</title>
-    <link th:fragment="link-css" rel="stylesheet" th:href="@{/css/bootstrap.min.css}">
-    <link th:fragment="custom-css" rel="stylesheet" th:href="@{/css/style.css}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.css">
 </head>
+
 <body class="d-flex flex-column h-100">
 <header th:fragment="header">
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
         <div class="container-fluid">
             <a class="navbar-brand" href="/">HUTECH</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+            <button class="navbar-toggler" type="button" data-bstoggle="collapse"
                     data-bs-target="#navbarSupportedContent"
                     aria-controls="navbarSupportedContent"
                     aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
-            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+            <div class="collapse navbar-collapse"
+                 id="navbarSupportedContent">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    <li class="nav-item">
-                        <a class="nav-link active" aria-current="page" href="/">Home</a>
-                    </li>
+                    <li class="nav-item"><a class="nav-link active" aria-current="page" href="/">Home</a></li>
                     <li class="nav-item"><a class="nav-link" href="/books">List Book</a></li>
                     <li class="nav-item"><a class="nav-link" href="/books/add">Add Book</a></li>
                 </ul>
-                <form class="d-flex" action="/books/search" method="GET" style="position: relative;">
+                <form class="position-relative" action="/books/search" method="GET">
                     <div class="input-group">
-                        <input id="searchInput" class="form-control me-2" type="search" name="search" placeholder="Search by title or author" aria-label="Search" autocomplete="off">
-                        <button class="btn btn-outline-success" type="submit">Search</button>
+                        <input autocomplete="off" class="form-control me-2" type="search" name="search" id="search-input" placeholder="Tìm kiếm tại đây" aria-label="Search" data-source="/books/autocomplete">
+                        <button class="btn btn-outline-success" type="submit">Tìm kiếm</button>
                     </div>
+                    <ul id="autocompleteList" class="autocomplete-list position-absolute w-100 mt-1"
+                        style=" cursor: pointer; display: none; z-index: 1000; background-color: white;
+                         list-style-type: none; border: 1px solid #ccc; max-height: 200px; overflow-y: auto; padding-left: 0;"></ul>
                 </form>
             </div>
         </div>
@@ -42,34 +47,68 @@
     <div th:fragment="content"></div>
 </div>
 <footer th:fragment="footer" class="footer mt-auto py-3 bg-light">
-    <div class="container text-center">Copyright &copy;
-        <span th:text="${#dates.year(#dates.createNow())}"></span>
-        <a href="https://www.hutech.edu.vn/">HUTECH Education</a>
-    </div>
     <script th:src="@{/js/bootstrap.min.js}"></script>
-    <script th:src="@{/js/jquery-3.7.1.min.js}"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.js" integrity="sha256-eKhayi8LEQwp4NKxN+CfCh+3qOVUtJn3QNZ0TciWLP4=" crossorigin="anonymous"></script>
     <script>
         $(document).ready(function() {
-            $("#searchInput").autocomplete({
-                source: function(request, response) {
+            $('#search-input').on('input', function() {
+                var searchTerm = $(this).val();
+                if (searchTerm.length >= 1) {
                     $.ajax({
-                        url: '/books/autocomplete',
-                        method: 'GET',
-                        data: { term: request.term },
-                        success: function(data) {
-                            response(data);
+                        url: $(this).data('source'),
+                        type: 'GET',
+                        data: { term: searchTerm, searchByAuthor: true }, // Thêm tham số searchByAuthor
+                        success: function(response) {
+                            if (response.length > 0) {
+                                $('#autocompleteList').empty();
+                                response.forEach(function(item) {
+                                    // Hiển thị tên tác giả
+                                    var authorItem = $('<li>').text(item.author);
+                                    authorItem.on('click', function() {
+                                        var searchValue = $(this).text();
+                                        window.location.href = '/books/search?search=' + encodeURIComponent(searchValue);
+                                    });
+                                    $('#autocompleteList').append(authorItem);
+
+                                    // Hiển thị tên tác phẩm (nếu có)
+                                    if (item.title) {
+                                        var titleItem = $('<li>').text(item.title);
+                                        titleItem.on('click', function() {
+                                            var searchValue = $(this).text();
+                                            window.location.href = '/books/search?search=' + encodeURIComponent(searchValue);
+                                        });
+                                        $('#autocompleteList').append(titleItem);
+                                    }
+                                });
+                                $('#autocompleteList').show();
+                            } else {
+                                $('#autocompleteList').hide();
+                            }
+                        },
+                        error: function() {
+                            $('#autocompleteList').empty();
+                            $('#autocompleteList').hide();
                         }
                     });
-                },
-                minLength: 2,
-                select: function(event, ui) {
-                    $("#searchInput").val(ui.item.value);
-                    return false;
+                } else {
+                    $('#autocompleteList').hide();
+                }
+            });
+
+            // Bỏ sự kiện mặc định của form khi click vào gợi ý
+            $('#autocompleteList').on('click', 'li', function(e) {
+                e.preventDefault();
+            });
+
+            $(document).on('click', function(event) {
+                if (!$(event.target).closest('#search-input, #autocompleteList').length) {
+                    $('#autocompleteList').hide();
                 }
             });
         });
+
     </script>
+
 </footer>
 </body>
 </html>
